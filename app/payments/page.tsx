@@ -37,12 +37,14 @@ export default function PaymentsPage() {
   const proformaInvoices = [
     {
       id: 1,
-      piNumber: "PI-2024-001",
+      piNumber: "GH-2024-001",
       customer: "ABC Construction Ltd",
       amount: "$125,000",
       paidAmount: "$75,000",
       remainingAmount: "$50,000",
       paymentProgress: 60,
+      bankName: "CBE",
+      paidBy: "Feysal MAma",
       issueDate: "2024-01-10",
       dueDate: "2024-02-10",
       status: "Partial Payment",
@@ -50,12 +52,14 @@ export default function PaymentsPage() {
     },
     {
       id: 2,
-      piNumber: "PI-2024-002",
+      piNumber: "GH-2024-002",
       customer: "XYZ Trading PLC",
       amount: "$87,500",
       paidAmount: "$87,500",
       remainingAmount: "$0",
       paymentProgress: 100,
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       issueDate: "2024-01-08",
       dueDate: "2024-02-08",
       status: "Fully Paid",
@@ -63,12 +67,14 @@ export default function PaymentsPage() {
     },
     {
       id: 3,
-      piNumber: "PI-2024-003",
+      piNumber: "GH-2024-003",
       customer: "Steel Works Ethiopia",
       amount: "$95,000",
       paidAmount: "$0",
       remainingAmount: "$95,000",
       paymentProgress: 0,
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       issueDate: "2024-01-12",
       dueDate: "2024-02-12",
       status: "Pending",
@@ -76,12 +82,14 @@ export default function PaymentsPage() {
     },
     {
       id: 4,
-      piNumber: "PI-2024-004",
+      piNumber: "BH-2024-001",
       customer: "ABC Construction Ltd",
       amount: "$156,000",
       paidAmount: "$46,800",
       remainingAmount: "$109,200",
       paymentProgress: 30,
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       issueDate: "2024-01-15",
       dueDate: "2024-02-15",
       status: "Partial Payment",
@@ -92,41 +100,49 @@ export default function PaymentsPage() {
   const paymentHistory = [
     {
       id: 1,
-      piNumber: "PI-2024-001",
+      piNumber: "BH-2024-002",
       customer: "ABC Construction Ltd",
       amount: "$25,000",
       paymentDate: "2024-01-15",
       paymentMethod: "Bank Transfer",
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       reference: "TXN-001234",
       status: "Completed",
     },
     {
       id: 2,
-      piNumber: "PI-2024-001",
+      piNumber: "AU-2024-001",
       customer: "ABC Construction Ltd",
       amount: "$50,000",
       paymentDate: "2024-01-20",
       paymentMethod: "Bank Transfer",
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       reference: "TXN-001235",
       status: "Completed",
     },
     {
       id: 3,
-      piNumber: "PI-2024-002",
+      piNumber: "AU-2024-002",
       customer: "XYZ Trading PLC",
       amount: "$87,500",
       paymentDate: "2024-01-18",
       paymentMethod: "Cash",
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       reference: "CASH-001",
       status: "Completed",
     },
     {
       id: 4,
-      piNumber: "PI-2024-004",
+      piNumber: "GH-2024-004",
       customer: "ABC Construction Ltd",
       amount: "$46,800",
       paymentDate: "2024-01-22",
       paymentMethod: "Bank Transfer",
+       bankName: "CBE",
+      paidBy: "Feysal MAma",
       reference: "TXN-001236",
       status: "Completed",
     },
@@ -156,7 +172,7 @@ export default function PaymentsPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -177,7 +193,7 @@ export default function PaymentsPage() {
                 Record Payment
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[625px]">
               <DialogHeader>
                 <DialogTitle>Record New Payment</DialogTitle>
                 <DialogDescription>Record a payment received from customer.</DialogDescription>
@@ -224,10 +240,31 @@ export default function PaymentsPage() {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="bankname" className="text-right">
+                    Bank Name
+                  </Label>
+                  <Select>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bank">CBE</SelectItem>
+                      <SelectItem value="cash">COOP</SelectItem>
+                      <SelectItem value="check">Awash</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="reference" className="text-right">
                     Reference
                   </Label>
                   <Input id="reference" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="payername" className="text-right">
+                    Payer Name
+                  </Label>
+                  <Input id="payername" className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="paymentDate" className="text-right">
@@ -322,6 +359,7 @@ export default function PaymentsPage() {
                       <TableHead>Total Amount</TableHead>
                       <TableHead>Paid Amount</TableHead>
                       <TableHead>Remaining</TableHead>
+                      <TableHead>Paid By</TableHead>
                       <TableHead>Payment Progress</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Status</TableHead>
@@ -335,6 +373,7 @@ export default function PaymentsPage() {
                         <TableCell>{pi.amount}</TableCell>
                         <TableCell className="text-green-600">{pi.paidAmount}</TableCell>
                         <TableCell className="text-red-600">{pi.remainingAmount}</TableCell>
+                        <TableCell className="text-gray-600">{pi.paidBy}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             <Progress value={pi.paymentProgress} className="w-16 h-2" />
@@ -366,6 +405,7 @@ export default function PaymentsPage() {
                       <TableHead>Amount</TableHead>
                       <TableHead>Payment Date</TableHead>
                       <TableHead>Method</TableHead>
+                      <TableHead>Paid By</TableHead>
                       <TableHead>Reference</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -378,6 +418,7 @@ export default function PaymentsPage() {
                         <TableCell className="text-green-600">{payment.amount}</TableCell>
                         <TableCell>{payment.paymentDate}</TableCell>
                         <TableCell>{payment.paymentMethod}</TableCell>
+                        <TableCell>{payment.paidBy}</TableCell>
                         <TableCell>{payment.reference}</TableCell>
                         <TableCell>
                           <Badge className="bg-green-500">{payment.status}</Badge>

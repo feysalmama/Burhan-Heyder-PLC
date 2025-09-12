@@ -43,7 +43,7 @@ export default function VesselsPage() {
       status: "In Transit",
       currentLocation: "Red Sea",
       eta: "2024-01-20 14:00",
-      lastUpdate: "2024-01-15 16:30",
+      dateOfDischargeStarted: "2024-01-15 16:30",
     },
     {
       id: 2,
@@ -55,7 +55,7 @@ export default function VesselsPage() {
       status: "Loading",
       currentLocation: "Shanghai Port",
       eta: "2024-01-25 09:00",
-      lastUpdate: "2024-01-15 14:15",
+      dateOfDischargeStarted: "2024-01-15 14:15",
     },
     {
       id: 3,
@@ -67,7 +67,7 @@ export default function VesselsPage() {
       status: "Maintenance",
       currentLocation: "Djibouti Port",
       eta: "N/A",
-      lastUpdate: "2024-01-14 10:20",
+      dateOfDischargeStarted: "2024-01-14 10:20",
     },
     {
       id: 4,
@@ -79,7 +79,7 @@ export default function VesselsPage() {
       status: "Docked",
       currentLocation: "Port of Djibouti",
       eta: "Arrived",
-      lastUpdate: "2024-01-15 18:45",
+      dateOfDischargeStarted: "2024-01-15 18:45",
     },
   ]
 
@@ -113,7 +113,7 @@ export default function VesselsPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -134,7 +134,7 @@ export default function VesselsPage() {
                 Add Vessel
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[625px]">
               <DialogHeader>
                 <DialogTitle>Add New Vessel</DialogTitle>
                 <DialogDescription>Register a new vessel for cargo operations.</DialogDescription>
@@ -151,6 +151,18 @@ export default function VesselsPage() {
                     Capacity (MT)
                   </Label>
                   <Input id="capacity" type="number" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="dateOfArrival" className="text-right">
+                    Date Of Arrival
+                  </Label>
+                  <Input id="dateOfArrival" type="date" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="dateOfDischargeStarted" className="text-right">
+                    Date Of Discharge Started
+                  </Label>
+                  <Input id="dateOfDischargeStarted" type="date" className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="description" className="text-right">
@@ -233,11 +245,11 @@ export default function VesselsPage() {
                   <TableHead>Vessel Name</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Current Cargo</TableHead>
-                  <TableHead>Utilization</TableHead>
+                 
                   <TableHead>Status</TableHead>
                   <TableHead>Current Location</TableHead>
                   <TableHead>ETA</TableHead>
-                  <TableHead>Last Update</TableHead>
+                  <TableHead>Date Of Discharge Started </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -246,11 +258,10 @@ export default function VesselsPage() {
                     <TableCell className="font-medium">{vessel.name}</TableCell>
                     <TableCell>{vessel.capacity}</TableCell>
                     <TableCell>{vessel.currentCargo}</TableCell>
-                    <TableCell>{vessel.utilization}%</TableCell>
                     <TableCell>{getStatusBadge(vessel.status)}</TableCell>
                     <TableCell>{vessel.currentLocation}</TableCell>
                     <TableCell>{vessel.eta}</TableCell>
-                    <TableCell>{vessel.lastUpdate}</TableCell>
+                    <TableCell>{vessel.dateOfDischargeStarted}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

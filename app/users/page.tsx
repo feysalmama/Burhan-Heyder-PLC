@@ -37,7 +37,7 @@ export default function UsersPage() {
       id: 1,
       name: "John Doe",
       phone: "+251911234567",
-      email: "john.doe@corbus.com",
+      email: "john.doe@Burhan Haiders.com",
       responsibility: "System Administrator",
       role: "Admin",
       status: "Active",
@@ -47,7 +47,7 @@ export default function UsersPage() {
       id: 2,
       name: "Jane Smith",
       phone: "+251922345678",
-      email: "jane.smith@corbus.com",
+      email: "jane.smith@Burhan Haiders.com",
       responsibility: "Sales Manager",
       role: "Sales",
       status: "Active",
@@ -57,7 +57,7 @@ export default function UsersPage() {
       id: 3,
       name: "Ahmed Hassan",
       phone: "+251933456789",
-      email: "ahmed.hassan@corbus.com",
+      email: "ahmed.hassan@Burhan Haiders.com",
       responsibility: "Logistics Coordinator",
       role: "Logistics",
       status: "Active",
@@ -67,7 +67,7 @@ export default function UsersPage() {
       id: 4,
       name: "Sarah Wilson",
       phone: "+251944567890",
-      email: "sarah.wilson@corbus.com",
+      email: "sarah.wilson@Burhan Haiders.com",
       responsibility: "Finance Officer",
       role: "Finance",
       status: "Inactive",
@@ -91,7 +91,7 @@ export default function UsersPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>

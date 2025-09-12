@@ -40,6 +40,8 @@ export default function CustomersPage() {
       tin: "TIN001234567",
       businessType: "Construction",
       contactNumber: "+251911234567",
+      contactPerson: "Mr. Abebe",
+      position: "Manager",
       address: "Addis Ababa, Ethiopia",
       status: "Active",
       balance: "$45,000",
@@ -55,6 +57,8 @@ export default function CustomersPage() {
       tin: "TIN002345678",
       businessType: "Trading",
       contactNumber: "+251922345678",
+       contactPerson: "Mr. Abebe",
+      position: "Manager",
       address: "Dire Dawa, Ethiopia",
       status: "Active",
       balance: "$12,500",
@@ -70,6 +74,8 @@ export default function CustomersPage() {
       tin: "TIN003456789",
       businessType: "Manufacturing",
       contactNumber: "+251933456789",
+       contactPerson: "Mr. Jemal",
+      position: "Representative",
       address: "Hawassa, Ethiopia",
       status: "Inactive",
       balance: "$0",
@@ -96,7 +102,7 @@ export default function CustomersPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -117,7 +123,7 @@ export default function CustomersPage() {
                 Add Customer
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[625px]">
               <DialogHeader>
                 <DialogTitle>Add New Customer</DialogTitle>
                 <DialogDescription>Enter customer details to register a new customer.</DialogDescription>
@@ -156,6 +162,18 @@ export default function CustomersPage() {
                     Contact Number
                   </Label>
                   <Input id="contactNumber" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">
+                    Email
+                  </Label>
+                  <Input id="email" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="contactPerson" className="text-right">
+                    Contact Person
+                  </Label>
+                  <Input id="contactPerson" className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="address" className="text-right">
@@ -210,7 +228,7 @@ export default function CustomersPage() {
                     <TableCell className="font-medium">{customer.companyName}</TableCell>
                     <TableCell>{customer.tin}</TableCell>
                     <TableCell>{customer.businessType}</TableCell>
-                    <TableCell>{customer.contactNumber}</TableCell>
+                    <TableCell>{customer.contactNumber} <br /> {customer.contactPerson} <br /> {customer.position}</TableCell>
                     <TableCell>
                       <Badge variant={customer.status === "Active" ? "default" : "secondary"}>{customer.status}</Badge>
                     </TableCell>

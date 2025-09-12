@@ -10,7 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Corbus Management System",
+  title: "Burhan Haider",
   description: "Professional metal importing business management system",
     generator: 'v0.dev'
 }

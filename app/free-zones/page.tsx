@@ -346,7 +346,7 @@ export default function FreeZonesPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>

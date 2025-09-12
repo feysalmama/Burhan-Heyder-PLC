@@ -56,13 +56,14 @@ export default function ProformaInvoicesPage() {
   const [proformaInvoices, setProformaInvoices] = useState([
     {
       id: 1,
-      piNumber: "PI-2024-001",
+      piNumber: "BH-2024-001",
       customer: "ABC Construction Ltd",
       customerId: 1,
       totalAmount: 125000,
       paidAmount: 75000,
       remainingAmount: 50000,
       paymentProgress: 60,
+      orderedby: "Gannoo Hasen",
       issueDate: "2024-01-10",
       dueDate: "2024-02-10",
       status: "Partial Payment",
@@ -76,13 +77,14 @@ export default function ProformaInvoicesPage() {
     },
     {
       id: 2,
-      piNumber: "PI-2024-002",
+      piNumber: "BH-2024-001",
       customer: "XYZ Trading PLC",
       customerId: 2,
       totalAmount: 87500,
       paidAmount: 87500,
       remainingAmount: 0,
       paymentProgress: 100,
+      orderedby: "Ali Mohammed",
       issueDate: "2024-01-08",
       dueDate: "2024-02-08",
       status: "Fully Paid",
@@ -93,13 +95,14 @@ export default function ProformaInvoicesPage() {
     },
     {
       id: 3,
-      piNumber: "PI-2024-003",
+      piNumber: "BH-2024-001",
       customer: "Steel Works Ethiopia",
       customerId: 3,
       totalAmount: 95000,
       paidAmount: 0,
       remainingAmount: 95000,
       paymentProgress: 0,
+      orderedby: "Burhan Haider",
       issueDate: "2024-01-12",
       dueDate: "2024-02-12",
       status: "Pending",
@@ -110,13 +113,14 @@ export default function ProformaInvoicesPage() {
     },
     {
       id: 4,
-      piNumber: "PI-2024-004",
+      piNumber: "BH-2024-001",
       customer: "ABC Construction Ltd",
       customerId: 1,
       totalAmount: 156000,
       paidAmount: 46800,
       remainingAmount: 109200,
       paymentProgress: 30,
+         orderedby: "AbdulGefar Umer",
       issueDate: "2024-01-15",
       dueDate: "2024-02-15",
       status: "Partial Payment",
@@ -127,13 +131,14 @@ export default function ProformaInvoicesPage() {
     },
     {
       id: 5,
-      piNumber: "PI-2024-005",
+      piNumber: "BH-2024-002",
       customer: "XYZ Trading PLC",
       customerId: 2,
       totalAmount: 70000,
       paidAmount: 0,
       remainingAmount: 70000,
       paymentProgress: 0,
+      orderedby: "Gannoo Hasen",
       issueDate: "2024-02-01",
       dueDate: "2024-03-01",
       status: "Draft", // New PI created as a draft
@@ -313,7 +318,7 @@ export default function ProformaInvoicesPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Corbus Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -540,6 +545,7 @@ export default function ProformaInvoicesPage() {
                   <TableHead>Paid Amount</TableHead>
                   <TableHead>Remaining</TableHead>
                   <TableHead>Progress</TableHead>
+                  <TableHead>Ordered By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -560,6 +566,7 @@ export default function ProformaInvoicesPage() {
                         <span className="text-sm">{pi.paymentProgress}%</span>
                       </div>
                     </TableCell>
+                    <TableCell>{pi.orderedby}</TableCell>
                     <TableCell>{getStatusBadge(pi.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1">
