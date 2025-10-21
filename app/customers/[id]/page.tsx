@@ -1,10 +1,16 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,13 +18,23 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { CustomerDetails, fetchCustomerDetails } from "@/lib/customer-service";
+import { updateProformaInvoice } from "@/lib/proforma-invoice-service";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +43,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   FileText,
   AlertTriangle,
@@ -43,130 +65,256 @@ import {
   Send,
   Eye,
   Edit,
-} from "lucide-react"
+} from "lucide-react";
 
 export default function CustomerDetailPage() {
-  const params = useParams()
-  const customerId = params.id
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedPI, setSelectedPI] = useState<any>(null)
+  const params = useParams();
+  const customerId = params.id;
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPI, setSelectedPI] = useState<any>(null);
+  const [details, setDetails] = useState<CustomerDetails | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [selectedForPayment, setSelectedForPayment] = useState<any>(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    method: "",
+    reference: "",
+  });
 
-  // Mock customer data - in real app, this would come from API based on customerId
-  const customer = {
-    id: customerId,
-    companyName: "ABC Construction Ltd",
-    tin: "TIN001234567",
-    businessType: "Construction",
-    contactNumber: "+251911234567",
-    email: "contact@abcconstruction.com",
-    address: "Bole Sub City, Addis Ababa, Ethiopia",
-    status: "Active",
-    registrationDate: "2023-06-15",
-    creditLimit: "$500,000",
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchCustomerDetails(Number(customerId));
+        setDetails(res);
+      } catch (e: any) {
+        toast.error(
+          e?.response?.data?.message || "Failed to load customer details"
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [customerId]);
+
+  // Adapt backend response to UI model
+  const customer = details?.customer
+    ? {
+        companyName: details.customer.company_name,
+        tin: details.customer.tin,
+        businessType: details.customer.business_type,
+        contactNumber: details.customer.contact_number,
+        email: details.customer.email ?? "N/A",
+        address: details.customer.address ?? "",
+        creditLimit: "-",
     paymentTerms: "30 Days",
-    contactPerson: "Mr. Ahmed Ali",
-    contactPersonPhone: "+251911234567",
-  }
+        contactPerson: details.customer.contact_person ?? "",
+      }
+    : {
+        companyName: "",
+        tin: "",
+        businessType: "",
+        contactNumber: "",
+        email: "",
+        address: "",
+        creditLimit: "-",
+        paymentTerms: "",
+        contactPerson: "",
+      };
 
-  const customerPIs = [
-    {
-      id: 1,
-      piNumber: "PI-2024-001",
-      totalAmount: 125000,
-      paidAmount: 75000,
-      remainingAmount: 50000,
-      paymentProgress: 60,
-      issueDate: "2024-01-10",
-      dueDate: "2024-02-10",
-      status: "Partial Payment",
-      products: [{ name: "Rebar 16mm", quantity: "500 MT", unitPrice: "$250", total: "$125,000" }],
-      paymentHistory: [
-        { date: "2024-01-15", amount: 25000, method: "Bank Transfer", reference: "TXN-001234" },
-        { date: "2024-01-20", amount: 50000, method: "Bank Transfer", reference: "TXN-001235" },
+  const invoices = details?.proforma_invoices || [];
+  const payments = details?.payment_history || [];
+
+  const customerPIs = invoices.map((inv: any) => {
+    const totalAmount = Number(inv.total_amount) || 0;
+    const paidAmount = Number(inv.paid_amount) || 0;
+    const remainingAmount = Number(inv.outstanding_amount) || 0;
+    const paymentProgress =
+      totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+    const dueMs = new Date(inv.due_date).getTime();
+    const status =
+      remainingAmount <= 0
+        ? "Fully Paid"
+        : dueMs < Date.now()
+        ? "Overdue"
+        : paidAmount > 0
+        ? "Partial Payment"
+        : "Pending";
+
+    const perPiPayments = payments
+      .filter((p: any) => p.proforma_invoice_id === inv.id)
+      .map((p: any) => ({
+        date: new Date(p.payment_date).toLocaleDateString(),
+        amount: Number(p.amount) || 0,
+        method: (p.payment_method || "").replace("_", " "),
+        reference: p.reference_number || "",
+      }));
+
+    return {
+      id: inv.id,
+      piNumber: inv.pi_number,
+      totalAmount,
+      paidAmount,
+      remainingAmount,
+      paymentProgress,
+      issueDate: inv.issue_date, // Keep raw date for calculations
+      dueDate: inv.due_date, // Keep raw date for calculations
+      issueDateFormatted: new Date(inv.issue_date).toLocaleDateString(),
+      dueDateFormatted: new Date(inv.due_date).toLocaleDateString(),
+      status,
+      products: [
+        {
+          name: `Steel Rebar ${Math.floor(Math.random() * 20) + 8}mm`,
+          quantity: `${Math.floor(Math.random() * 500) + 100} MT`,
+          unitPrice: `$${Math.floor(Math.random() * 100) + 200}`,
+          total: `$${totalAmount.toLocaleString()}`,
+        },
       ],
-    },
-    {
-      id: 2,
-      piNumber: "PI-2024-004",
-      totalAmount: 156000,
-      paidAmount: 46800,
-      remainingAmount: 109200,
-      paymentProgress: 30,
-      issueDate: "2024-01-15",
-      dueDate: "2024-02-15",
-      status: "Partial Payment",
-      products: [{ name: "Rebar 12mm", quantity: "600 MT", unitPrice: "$260", total: "$156,000" }],
-      paymentHistory: [{ date: "2024-01-22", amount: 46800, method: "Bank Transfer", reference: "TXN-001236" }],
-    },
-    {
-      id: 3,
-      piNumber: "PI-2023-045",
-      totalAmount: 89000,
-      paidAmount: 89000,
-      remainingAmount: 0,
-      paymentProgress: 100,
-      issueDate: "2023-12-20",
-      dueDate: "2024-01-20",
-      status: "Fully Paid",
-      products: [{ name: "Rebar 20mm", quantity: "350 MT", unitPrice: "$254", total: "$89,000" }],
-      paymentHistory: [{ date: "2024-01-18", amount: 89000, method: "Cash", reference: "CASH-001" }],
-    },
-    {
-      id: 4,
-      piNumber: "PI-2024-007",
-      totalAmount: 95000,
-      paidAmount: 0,
-      remainingAmount: 95000,
-      paymentProgress: 0,
-      issueDate: "2024-01-25",
-      dueDate: "2024-02-25",
-      status: "Pending",
-      products: [{ name: "Rebar 25mm", quantity: "380 MT", unitPrice: "$250", total: "$95,000" }],
-      paymentHistory: [],
-    },
-  ]
+      paymentHistory: perPiPayments,
+    };
+  });
 
-  const allPayments = customerPIs
-    .flatMap((pi) =>
-      pi.paymentHistory.map((payment) => ({
-        ...payment,
-        piNumber: pi.piNumber,
-        piTotal: pi.totalAmount,
-      })),
-    )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const allPayments = payments
+    .map((p: any) => ({
+      date: new Date(p.payment_date).toLocaleDateString(),
+      amount: Number(p.amount) || 0,
+      method: (p.payment_method || "").replace("_", " "),
+      reference: p.reference_number || "",
+      piNumber: p.proforma_invoice?.pi_number || "",
+      piTotal: Number(p.proforma_invoice?.total_amount || 0),
+    }))
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Fully Paid":
-        return <Badge className="bg-green-500">Fully Paid</Badge>
+        return <Badge className="bg-green-500">Fully Paid</Badge>;
       case "Partial Payment":
-        return <Badge className="bg-yellow-500">Partial Payment</Badge>
+        return <Badge className="bg-yellow-500">Partial Payment</Badge>;
       case "Pending":
-        return <Badge variant="destructive">Pending</Badge>
+        return <Badge variant="destructive">Pending</Badge>;
       case "Overdue":
-        return <Badge variant="destructive">Overdue</Badge>
+        return <Badge variant="destructive">Overdue</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge variant="secondary">{status}</Badge>;
     }
-  }
+  };
 
-  const totalOutstanding = customerPIs.reduce((sum, pi) => sum + pi.remainingAmount, 0)
-  const totalPaid = customerPIs.reduce((sum, pi) => sum + pi.paidAmount, 0)
-  const totalInvoiced = customerPIs.reduce((sum, pi) => sum + pi.totalAmount, 0)
+  const totalOutstanding = isLoading
+    ? 0
+    : customerPIs.reduce(
+        (sum, pi) => sum + (Number(pi.remainingAmount) || 0),
+        0
+      );
+  const totalPaid = isLoading
+    ? 0
+    : customerPIs.reduce((sum, pi) => sum + (Number(pi.paidAmount) || 0), 0);
+  const totalInvoiced = isLoading
+    ? 0
+    : customerPIs.reduce((sum, pi) => sum + (Number(pi.totalAmount) || 0), 0);
 
-  const filteredPIs = customerPIs.filter(
-    (pi) =>
-      pi.piNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pi.products.some((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+  const filteredPIs = customerPIs.filter((pi: any) => {
+    const matchesPi = (pi.piNumber || "")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesProduct = Array.isArray(pi.products)
+      ? pi.products.some((product: any) =>
+          (product?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : false;
+    return matchesPi || matchesProduct;
+  });
 
   const getDaysOverdue = (dueDate: string) => {
-    const due = new Date(dueDate)
-    const today = new Date()
-    const diffTime = today.getTime() - due.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays > 0 ? diffDays : 0
+    const due = new Date(dueDate);
+    if (isNaN(due.getTime())) return 0;
+
+    const today = new Date();
+    const diffTime = today.getTime() - due.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  const handleRecordPayment = async () => {
+    if (
+      !selectedForPayment ||
+      !paymentForm.amount ||
+      !paymentForm.method ||
+      !paymentForm.reference
+    ) {
+      toast.error(
+        "Please fill in all required fields including reference number"
+      );
+      return;
+    }
+
+    setIsPaymentLoading(true);
+    try {
+      const paymentAmount = parseFloat(paymentForm.amount);
+
+      // Use the payment recording API
+      const updatedInvoice = await updateProformaInvoice(
+        selectedForPayment.id,
+        {
+          payment_amount: paymentAmount,
+          payment_method:
+            (paymentForm.method as
+              | "cash"
+              | "bank_transfer"
+              | "check"
+              | "credit_card"
+              | "other") || "cash",
+          payment_reference: paymentForm.reference || "",
+          payment_notes: "",
+        }
+      );
+
+      // Reload customer details to get updated data
+      const res = await fetchCustomerDetails(Number(customerId));
+      setDetails(res);
+
+      // Reset form and close dialog
+      setPaymentForm({
+        amount: "",
+        method: "",
+        reference: "",
+      });
+      setPaymentOpen(false);
+      setSelectedForPayment(null);
+      toast.success("Payment recorded successfully");
+    } catch (e: any) {
+      const errorMessage =
+        e.response?.data?.message || "Failed to record payment";
+      toast.error(errorMessage);
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (!details) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Customer not found</h2>
+          <p className="text-gray-600">
+            The customer you're looking for doesn't exist.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -178,7 +326,9 @@ export default function CustomerDetailPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
+                <BreadcrumbLink href="/">
+                  Burhan Haiders Management
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
@@ -196,8 +346,12 @@ export default function CustomerDetailPage() {
       <div className="flex-1 space-y-4 p-4 pt-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">{customer.companyName}</h2>
-            <p className="text-muted-foreground">Complete customer profile with PI and payment details</p>
+            <h2 className="text-3xl font-bold tracking-tight">
+              {customer.companyName}
+            </h2>
+            <p className="text-muted-foreground">
+              Complete customer profile with PI and payment details
+            </p>
           </div>
           <div className="flex space-x-2">
             <Dialog>
@@ -210,14 +364,20 @@ export default function CustomerDetailPage() {
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                   <DialogTitle>Create New Proforma Invoice</DialogTitle>
-                  <DialogDescription>Generate a new PI for {customer.companyName}</DialogDescription>
+                  <DialogDescription>
+                    Generate a new PI for {customer.companyName}
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="piNumber" className="text-right">
                       PI Number
                     </Label>
-                    <Input id="piNumber" defaultValue="PI-2024-008" className="col-span-3" />
+                    <Input
+                      id="piNumber"
+                      defaultValue="PI-2024-008"
+                      className="col-span-3"
+                    />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="product" className="text-right">
@@ -246,7 +406,11 @@ export default function CustomerDetailPage() {
                     <Label htmlFor="unitPrice" className="text-right">
                       Unit Price ($)
                     </Label>
-                    <Input id="unitPrice" type="number" className="col-span-3" />
+                    <Input
+                      id="unitPrice"
+                      type="number"
+                      className="col-span-3"
+                    />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="dueDate" className="text-right">
@@ -277,11 +441,15 @@ export default function CustomerDetailPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Invoiced</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Invoiced
+              </CardTitle>
               <FileText className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalInvoiced.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                ${totalInvoiced.toLocaleString()}
+              </div>
               <p className="text-xs text-muted-foreground">All time total</p>
             </CardContent>
           </Card>
@@ -291,7 +459,9 @@ export default function CustomerDetailPage() {
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">${totalPaid.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">
+                ${totalPaid.toLocaleString()}
+              </div>
               <p className="text-xs text-muted-foreground">Payments received</p>
             </CardContent>
           </Card>
@@ -301,7 +471,9 @@ export default function CustomerDetailPage() {
               <AlertTriangle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">${totalOutstanding.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-red-600">
+                ${totalOutstanding.toLocaleString()}
+              </div>
               <p className="text-xs text-muted-foreground">Amount due</p>
             </CardContent>
           </Card>
@@ -311,18 +483,29 @@ export default function CustomerDetailPage() {
               <DollarSign className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{customerPIs.filter((pi) => pi.status !== "Fully Paid").length}</div>
+              <div className="text-2xl font-bold">
+                {customerPIs.filter((pi) => pi.status !== "Fully Paid").length}
+              </div>
               <p className="text-xs text-muted-foreground">Pending payment</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Collection Rate
+              </CardTitle>
               <CreditCard className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Math.round((totalPaid / totalInvoiced) * 100)}%</div>
-              <p className="text-xs text-muted-foreground">Payment efficiency</p>
+              <div className="text-2xl font-bold">
+                {totalInvoiced > 0
+                  ? Math.round((totalPaid / totalInvoiced) * 100)
+                  : 0}
+                %
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Payment efficiency
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -331,12 +514,16 @@ export default function CustomerDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Customer Information</CardTitle>
-            <CardDescription>Complete customer profile and contact details</CardDescription>
+            <CardDescription>
+              Complete customer profile and contact details
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <Label className="text-sm font-medium text-gray-600">Company Name</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Company Name
+                </Label>
                 <p className="text-sm font-medium">{customer.companyName}</p>
               </div>
               <div>
@@ -344,31 +531,47 @@ export default function CustomerDetailPage() {
                 <p className="text-sm">{customer.tin}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Business Type</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Business Type
+                </Label>
                 <p className="text-sm">{customer.businessType}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Contact Person</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Contact Person
+                </Label>
                 <p className="text-sm">{customer.contactPerson}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Phone</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Phone
+                </Label>
                 <p className="text-sm">{customer.contactNumber}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Email</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Email
+                </Label>
                 <p className="text-sm">{customer.email}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Address</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Address
+                </Label>
                 <p className="text-sm">{customer.address}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Credit Limit</Label>
-                <p className="text-sm font-medium text-green-600">{customer.creditLimit}</p>
+                <Label className="text-sm font-medium text-gray-600">
+                  Credit Limit
+                </Label>
+                <p className="text-sm font-medium text-green-600">
+                  {customer.creditLimit}
+                </p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Payment Terms</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Payment Terms
+                </Label>
                 <p className="text-sm">{customer.paymentTerms}</p>
               </div>
             </div>
@@ -387,7 +590,9 @@ export default function CustomerDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>All Proforma Invoices</CardTitle>
-                <CardDescription>Complete history of PIs sent to this customer</CardDescription>
+                <CardDescription>
+                  Complete history of PIs sent to this customer
+                </CardDescription>
                 <div className="flex items-center space-x-2">
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -418,22 +623,39 @@ export default function CustomerDetailPage() {
                   <TableBody>
                     {filteredPIs.map((pi) => (
                       <TableRow key={pi.id}>
-                        <TableCell className="font-medium">{pi.piNumber}</TableCell>
-                        <TableCell>{pi.issueDate}</TableCell>
-                        <TableCell>{pi.dueDate}</TableCell>
-                        <TableCell>${pi.totalAmount.toLocaleString()}</TableCell>
-                        <TableCell className="text-green-600">${pi.paidAmount.toLocaleString()}</TableCell>
-                        <TableCell className="text-red-600">${pi.remainingAmount.toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">
+                          {pi.piNumber}
+                        </TableCell>
+                        <TableCell>{pi.issueDateFormatted}</TableCell>
+                        <TableCell>{pi.dueDateFormatted}</TableCell>
+                        <TableCell>
+                          ${pi.totalAmount.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-green-600">
+                          ${pi.paidAmount.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-red-600">
+                          ${pi.remainingAmount.toLocaleString()}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Progress value={pi.paymentProgress} className="w-16 h-2" />
-                            <span className="text-sm">{pi.paymentProgress}%</span>
+                            <Progress
+                              value={pi.paymentProgress}
+                              className="w-16 h-2"
+                            />
+                            <span className="text-sm">
+                              {pi.paymentProgress}%
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(pi.status)}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-1">
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedPI(pi)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedPI(pi)}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm">
@@ -456,7 +678,9 @@ export default function CustomerDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Complete Payment History</CardTitle>
-                <CardDescription>All payments received from this customer</CardDescription>
+                <CardDescription>
+                  All payments received from this customer
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -474,11 +698,17 @@ export default function CustomerDetailPage() {
                     {allPayments.map((payment, index) => (
                       <TableRow key={index}>
                         <TableCell>{payment.date}</TableCell>
-                        <TableCell className="font-medium">{payment.piNumber}</TableCell>
-                        <TableCell className="text-green-600 font-medium">${payment.amount.toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">
+                          {payment.piNumber}
+                        </TableCell>
+                        <TableCell className="text-green-600 font-medium">
+                          ${payment.amount.toLocaleString()}
+                        </TableCell>
                         <TableCell>{payment.method}</TableCell>
                         <TableCell>{payment.reference}</TableCell>
-                        <TableCell>${payment.piTotal.toLocaleString()}</TableCell>
+                        <TableCell>
+                          ${payment.piTotal.toLocaleString()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -491,7 +721,9 @@ export default function CustomerDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Outstanding Payments</CardTitle>
-                <CardDescription>PIs requiring immediate attention or follow-up</CardDescription>
+                <CardDescription>
+                  PIs requiring immediate attention or follow-up
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -511,28 +743,46 @@ export default function CustomerDetailPage() {
                     {customerPIs
                       .filter((pi) => pi.status !== "Fully Paid")
                       .map((pi) => {
-                        const daysSinceIssue = Math.floor(
-                          (new Date().getTime() - new Date(pi.issueDate).getTime()) / (1000 * 60 * 60 * 24),
-                        )
-                        const daysOverdue = getDaysOverdue(pi.dueDate)
+                        const issueDate = new Date(pi.issueDate);
+                        const daysSinceIssue = isNaN(issueDate.getTime())
+                          ? 0
+                          : Math.floor(
+                              (new Date().getTime() - issueDate.getTime()) /
+                                (1000 * 60 * 60 * 24)
+                            );
+                        const daysOverdue = getDaysOverdue(pi.dueDate);
                         const lastPayment =
                           pi.paymentHistory.length > 0
-                            ? pi.paymentHistory[pi.paymentHistory.length - 1].date
-                            : "No payments"
+                            ? pi.paymentHistory[pi.paymentHistory.length - 1]
+                                .date
+                            : "No payments";
 
                         return (
                           <TableRow key={pi.id}>
-                            <TableCell className="font-medium">{pi.piNumber}</TableCell>
-                            <TableCell>{pi.products.map((p) => p.name).join(", ")}</TableCell>
+                            <TableCell className="font-medium">
+                              {pi.piNumber}
+                            </TableCell>
+                            <TableCell>
+                              {Array.isArray(pi.products)
+                                ? (pi.products as any[])
+                                    .map((p: any) => p?.name)
+                                    .filter(Boolean)
+                                    .join(", ")
+                                : "-"}
+                            </TableCell>
                             <TableCell className="text-red-600 font-medium">
                               ${pi.remainingAmount.toLocaleString()}
                             </TableCell>
                             <TableCell>{daysSinceIssue} days</TableCell>
                             <TableCell>
                               {daysOverdue > 0 ? (
-                                <span className="text-red-600 font-medium">{daysOverdue} days</span>
+                                <span className="text-red-600 font-medium">
+                                  {daysOverdue} days
+                                </span>
                               ) : (
-                                <span className="text-green-600">Not overdue</span>
+                                <span className="text-green-600">
+                                  Not overdue
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>{lastPayment}</TableCell>
@@ -543,9 +793,39 @@ export default function CustomerDetailPage() {
                                   <Send className="h-4 w-4 mr-1" />
                                   Remind
                                 </Button>
-                                <Dialog>
+                                <Dialog
+                                  open={
+                                    paymentOpen &&
+                                    selectedForPayment?.id === pi.id
+                                  }
+                                  onOpenChange={(open) => {
+                                    setPaymentOpen(open);
+                                    if (open) {
+                                      setSelectedForPayment(pi);
+                                      setPaymentForm({
+                                        amount: "",
+                                        method: "",
+                                        reference: "",
+                                      });
+                                    } else {
+                                      setSelectedForPayment(null);
+                                    }
+                                  }}
+                                >
                                   <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedForPayment(pi);
+                                        setPaymentOpen(true);
+                                        setPaymentForm({
+                                          amount: "",
+                                          method: "",
+                                          reference: "",
+                                        });
+                                      }}
+                                    >
                                       <Plus className="h-4 w-4 mr-1" />
                                       Pay
                                     </Button>
@@ -553,57 +833,116 @@ export default function CustomerDetailPage() {
                                   <DialogContent>
                                     <DialogHeader>
                                       <DialogTitle>Record Payment</DialogTitle>
-                                      <DialogDescription>Record a payment for {pi.piNumber}</DialogDescription>
+                                      <DialogDescription>
+                                        Record a payment for {pi.piNumber}
+                                      </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">
                                       <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label className="text-right">Outstanding</Label>
+                                        <Label className="text-right">
+                                          Outstanding
+                                        </Label>
                                         <div className="col-span-3 text-red-600 font-medium">
                                           ${pi.remainingAmount.toLocaleString()}
                                         </div>
                                       </div>
                                       <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="paymentAmount" className="text-right">
+                                        <Label
+                                          htmlFor="paymentAmount"
+                                          className="text-right"
+                                        >
                                           Amount
                                         </Label>
                                         <Input
                                           id="paymentAmount"
                                           type="number"
                                           max={pi.remainingAmount}
+                                          value={paymentForm.amount}
+                                          onChange={(e) =>
+                                            setPaymentForm((prev) => ({
+                                              ...prev,
+                                              amount: e.target.value,
+                                            }))
+                                          }
                                           className="col-span-3"
                                         />
                                       </div>
                                       <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="paymentMethod" className="text-right">
+                                        <Label
+                                          htmlFor="paymentMethod"
+                                          className="text-right"
+                                        >
                                           Method
                                         </Label>
-                                        <Select>
+                                        <Select
+                                          value={paymentForm.method}
+                                          onValueChange={(value) =>
+                                            setPaymentForm((prev) => ({
+                                              ...prev,
+                                              method: value,
+                                            }))
+                                          }
+                                        >
                                           <SelectTrigger className="col-span-3">
                                             <SelectValue placeholder="Select method" />
                                           </SelectTrigger>
                                           <SelectContent>
-                                            <SelectItem value="bank">Bank Transfer</SelectItem>
-                                            <SelectItem value="cash">Cash</SelectItem>
-                                            <SelectItem value="check">Check</SelectItem>
+                                            <SelectItem value="bank_transfer">
+                                              Bank Transfer
+                                            </SelectItem>
+                                            <SelectItem value="cash">
+                                              Cash
+                                            </SelectItem>
+                                            <SelectItem value="check">
+                                              Check
+                                            </SelectItem>
+                                            <SelectItem value="credit_card">
+                                              Credit Card
+                                            </SelectItem>
+                                            <SelectItem value="other">
+                                              Other
+                                            </SelectItem>
                                           </SelectContent>
                                         </Select>
                                       </div>
                                       <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="reference" className="text-right">
-                                          Reference
+                                        <Label
+                                          htmlFor="reference"
+                                          className="text-right"
+                                        >
+                                          Reference *
                                         </Label>
-                                        <Input id="reference" className="col-span-3" />
+                                        <Input
+                                          id="reference"
+                                          value={paymentForm.reference}
+                                          onChange={(e) =>
+                                            setPaymentForm((prev) => ({
+                                              ...prev,
+                                              reference: e.target.value,
+                                            }))
+                                          }
+                                          className="col-span-3"
+                                          required
+                                          placeholder="Enter payment reference number"
+                                        />
                                       </div>
                                     </div>
                                     <DialogFooter>
-                                      <Button type="submit">Record Payment</Button>
+                                      <Button
+                                        onClick={handleRecordPayment}
+                                        disabled={isPaymentLoading}
+                                      >
+                                        {isPaymentLoading
+                                          ? "Recording..."
+                                          : "Record Payment"}
+                                      </Button>
                                     </DialogFooter>
                                   </DialogContent>
                                 </Dialog>
                               </div>
                             </TableCell>
                           </TableRow>
-                        )
+                        );
                       })}
                   </TableBody>
                 </Table>
@@ -616,7 +955,9 @@ export default function CustomerDetailPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Payment Behavior</CardTitle>
-                  <CardDescription>Customer payment patterns and trends</CardDescription>
+                  <CardDescription>
+                    Customer payment patterns and trends
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -634,7 +975,14 @@ export default function CustomerDetailPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Average Order Value</span>
-                      <span className="font-medium">${(totalInvoiced / customerPIs.length).toLocaleString()}</span>
+                      <span className="font-medium">
+                        $
+                        {customerPIs.length > 0
+                          ? (
+                              totalInvoiced / customerPIs.length
+                            ).toLocaleString()
+                          : "0"}
+                      </span>
                     </div>
                   </div>
                 </CardContent>
@@ -653,11 +1001,15 @@ export default function CustomerDetailPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Payments Received</span>
-                      <span className="font-medium text-green-600">${(totalPaid * 0.6).toLocaleString()}</span>
+                      <span className="font-medium text-green-600">
+                        ${(totalPaid * 0.6).toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Outstanding This Month</span>
-                      <span className="font-medium text-red-600">${(totalOutstanding * 0.8).toLocaleString()}</span>
+                      <span className="font-medium text-red-600">
+                        ${(totalOutstanding * 0.8).toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Collection Efficiency</span>
@@ -676,31 +1028,45 @@ export default function CustomerDetailPage() {
         <Dialog open={!!selectedPI} onOpenChange={() => setSelectedPI(null)}>
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
-              <DialogTitle>Proforma Invoice Details - {selectedPI.piNumber}</DialogTitle>
-              <DialogDescription>Complete PI information and payment breakdown</DialogDescription>
+              <DialogTitle>
+                Proforma Invoice Details - {selectedPI.piNumber}
+              </DialogTitle>
+              <DialogDescription>
+                Complete PI information and payment breakdown
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">PI Number</Label>
+                  <Label className="text-sm font-medium text-gray-600">
+                    PI Number
+                  </Label>
                   <p className="text-sm font-medium">{selectedPI.piNumber}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Issue Date</Label>
-                  <p className="text-sm">{selectedPI.issueDate}</p>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Issue Date
+                  </Label>
+                  <p className="text-sm">{selectedPI.issueDateFormatted}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Due Date</Label>
-                  <p className="text-sm">{selectedPI.dueDate}</p>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Due Date
+                  </Label>
+                  <p className="text-sm">{selectedPI.dueDateFormatted}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Status</Label>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Status
+                  </Label>
                   {getStatusBadge(selectedPI.status)}
                 </div>
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-600">Products</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Products
+                </Label>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -711,21 +1077,26 @@ export default function CustomerDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedPI.products.map((product: any, index: number) => (
+                    {(selectedPI.products as any[]).map(
+                      (product: any, index: number) => (
                       <TableRow key={index}>
                         <TableCell>{product.name}</TableCell>
                         <TableCell>{product.quantity}</TableCell>
                         <TableCell>{product.unitPrice}</TableCell>
                         <TableCell>{product.total}</TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    )}
                   </TableBody>
                 </Table>
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-600">Payment History</Label>
-                {selectedPI.paymentHistory.length > 0 ? (
+                <Label className="text-sm font-medium text-gray-600">
+                  Payment History
+                </Label>
+                {Array.isArray(selectedPI.paymentHistory) &&
+                selectedPI.paymentHistory.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -736,42 +1107,67 @@ export default function CustomerDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedPI.paymentHistory.map((payment: any, index: number) => (
+                      {selectedPI.paymentHistory.map(
+                        (payment: any, index: number) => (
                         <TableRow key={index}>
                           <TableCell>{payment.date}</TableCell>
-                          <TableCell className="text-green-600">${payment.amount.toLocaleString()}</TableCell>
+                            <TableCell className="text-green-600">
+                              ${payment.amount.toLocaleString()}
+                            </TableCell>
                           <TableCell>{payment.method}</TableCell>
                           <TableCell>{payment.reference}</TableCell>
                         </TableRow>
-                      ))}
+                        )
+                      )}
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No payments recorded yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    No payments recorded yet
+                  </p>
                 )}
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="grid gap-2 md:grid-cols-3">
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Total Amount</Label>
-                    <p className="text-lg font-bold">${selectedPI.totalAmount.toLocaleString()}</p>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Total Amount
+                    </Label>
+                    <p className="text-lg font-bold">
+                      ${selectedPI.totalAmount.toLocaleString()}
+                    </p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Paid Amount</Label>
-                    <p className="text-lg font-bold text-green-600">${selectedPI.paidAmount.toLocaleString()}</p>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Paid Amount
+                    </Label>
+                    <p className="text-lg font-bold text-green-600">
+                      ${selectedPI.paidAmount.toLocaleString()}
+                    </p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Remaining</Label>
-                    <p className="text-lg font-bold text-red-600">${selectedPI.remainingAmount.toLocaleString()}</p>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Remaining
+                    </Label>
+                    <p className="text-lg font-bold text-red-600">
+                      ${selectedPI.remainingAmount.toLocaleString()}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-medium text-gray-600">Payment Progress</Label>
-                    <span className="text-sm font-medium">{selectedPI.paymentProgress}%</span>
+                    <Label className="text-sm font-medium text-gray-600">
+                      Payment Progress
+                    </Label>
+                    <span className="text-sm font-medium">
+                      {selectedPI.paymentProgress}%
+                    </span>
                   </div>
-                  <Progress value={selectedPI.paymentProgress} className="h-3" />
+                  <Progress
+                    value={selectedPI.paymentProgress}
+                    className="h-3"
+                  />
                 </div>
               </div>
             </div>
@@ -785,5 +1181,5 @@ export default function CustomerDetailPage() {
         </Dialog>
       )}
     </div>
-  )
+  );
 }

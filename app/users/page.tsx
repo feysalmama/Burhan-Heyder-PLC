@@ -1,21 +1,24 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect } from "react";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ModernBadge } from "@/components/ui/modern-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -24,169 +27,450 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search, Edit, Trash2, UserCheck, UserX } from "lucide-react"
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import {
+  userService,
+  User,
+  CreateUserData,
+  UpdateUserData,
+} from "@/lib/user-service";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 export default function UsersPage() {
-  const [searchTerm, setSearchTerm] = useState("")
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isFormActive, setIsFormActive] = useState(false);
+  const [formData, setFormData] = useState<CreateUserData>({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    responsibility: "",
+    roles: [],
+  });
+  const { user: currentUser } = useAuth();
 
-  const users = [
-    {
-      id: 1,
-      name: "John Doe",
-      phone: "+251911234567",
-      email: "john.doe@Burhan Haiders.com",
-      responsibility: "System Administrator",
-      role: "Admin",
-      status: "Active",
-      lastLogin: "2024-01-15 09:30",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      phone: "+251922345678",
-      email: "jane.smith@Burhan Haiders.com",
-      responsibility: "Sales Manager",
-      role: "Sales",
-      status: "Active",
-      lastLogin: "2024-01-15 08:45",
-    },
-    {
-      id: 3,
-      name: "Ahmed Hassan",
-      phone: "+251933456789",
-      email: "ahmed.hassan@Burhan Haiders.com",
-      responsibility: "Logistics Coordinator",
-      role: "Logistics",
-      status: "Active",
-      lastLogin: "2024-01-14 16:20",
-    },
-    {
-      id: 4,
-      name: "Sarah Wilson",
-      phone: "+251944567890",
-      email: "sarah.wilson@Burhan Haiders.com",
-      responsibility: "Finance Officer",
-      role: "Finance",
-      status: "Inactive",
-      lastLogin: "2024-01-10 14:15",
-    },
-  ]
+  // Fetch users from API
+  const fetchUsers = async (showSearchMessages = true) => {
+    try {
+      setLoading(true);
+      const response = await userService.getUsers(currentPage, 15, searchTerm);
+      setUsers(response.data);
+      setTotalPages(response.last_page);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+      // Show message for search results only if showSearchMessages is true
+      if (showSearchMessages) {
+        if (response.data.length > 0 && searchTerm) {
+          toast.success("Search results found", {
+            description: `Found ${response.data.length} user(s) matching "${searchTerm}".`,
+            duration: 3000,
+          });
+        } else if (response.data.length === 0 && searchTerm) {
+          toast.info("No results found", {
+            description: `No users found matching "${searchTerm}". Try a different search term.`,
+            duration: 4000,
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error fetching users:", error);
+      const errorMessage =
+        error.response?.data?.error || "Failed to load users";
+      toast.error("Something Went Wrong! Failed to load users", {
+        description: errorMessage,
+        duration: 6000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch users if no dialogs are open
+    if (!isCreateDialogOpen && !isEditDialogOpen) {
+      fetchUsers();
+    }
+  }, [currentPage, searchTerm, isCreateDialogOpen, isEditDialogOpen]);
+
+  const getStatusBadge = (user: User) => {
+    const isActive = user.email_verified_at !== null;
+    return (
+      <ModernBadge variant={isActive ? "success" : "error"} size="sm">
+        {isActive ? "Active" : "Inactive"}
+      </ModernBadge>
+    );
+  };
+
+  const getRoleBadges = (roles: any[]) => {
+    if (!roles || roles.length === 0) {
+      return (
+        <ModernBadge variant="default" size="sm">
+          No Role
+        </ModernBadge>
+      );
+    }
+
+    return roles.map((role, index) => {
+      const variant =
+        role.name === "Admin"
+          ? "error"
+          : role.name === "Manager"
+          ? "warning"
+          : "info";
+
+      return (
+        <ModernBadge key={index} variant={variant} size="sm" className="mr-1">
+          {role.name}
+        </ModernBadge>
+      );
+    });
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      // Client-side validation
+      if (!formData.name.trim()) {
+        toast.error("Name is required", {
+          description: "Please enter a valid name for the user.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (!formData.email.trim()) {
+        toast.error("Email is required", {
+          description: "Please enter a valid email address for the user.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (!formData.password || formData.password.length < 8) {
+        toast.error("Password is required", {
+          description: "Please enter a password with at least 8 characters.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      const response = await userService.createUser(formData);
+      setUsers([response, ...users]);
+      setIsCreateDialogOpen(false);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        responsibility: "",
+        roles: [],
+      });
+
+      toast.success("Successfully created user", {
+        description: `User "${response.name}" has been created successfully.`,
+        duration: 4000,
+      });
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      const errorMessage =
+        error.response?.data?.message || "Failed to create user";
+      toast.error("Something Went Wrong! User creation failed", {
+        description: errorMessage,
+        duration: 6000,
+      });
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      // Client-side validation
+      if (!formData.name.trim()) {
+        toast.error("Name is required", {
+          description: "Please enter a valid name for the user.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      if (!formData.email.trim()) {
+        toast.error("Email is required", {
+          description: "Please enter a valid email address for the user.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      const updateData: UpdateUserData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        responsibility: formData.responsibility,
+        roles: formData.roles,
+      };
+
+      // Only include password if it's provided
+      if (formData.password && formData.password.length >= 8) {
+        updateData.password = formData.password;
+      }
+
+      const response = await userService.updateUser(editingUser.id, updateData);
+      setUsers(
+        users.map((user) => (user.id === editingUser.id ? response : user))
+      );
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        phone: "",
+        responsibility: "",
+        roles: [],
+      });
+
+      toast.success("Successfully updated user", {
+        description: `User "${response.name}" has been updated successfully.`,
+        duration: 4000,
+      });
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      const errorMessage =
+        error.response?.data?.message || "Failed to update user";
+      toast.error("Something Went Wrong! User update failed", {
+        description: errorMessage,
+        duration: 6000,
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    try {
+      await userService.deleteUser(userId);
+      setUsers(users.filter((user) => user.id !== userId));
+
+      toast.success("Successfully deleted user", {
+        description: "User has been deleted successfully.",
+        duration: 4000,
+      });
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      const errorMessage =
+        error.response?.data?.message || "Failed to delete user";
+      toast.error("Something Went Wrong! User deletion failed", {
+        description: errorMessage,
+        duration: 6000,
+      });
+    }
+  };
+
+  const openEditDialog = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      name: user.name,
+      email: user.email,
+      password: "",
+      phone: user.phone || "",
+      responsibility: user.responsibility || "",
+      roles: user.roles || [],
+    });
+    setIsEditDialogOpen(true);
+  };
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <header className="flex h-16 shrink-0 items-center gap-2">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/">Burhan Haiders Management</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>User Management</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </header>
+    <div className="management-page w-full space-y-6 p-6 max-w-none">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
+      </div>
 
-      <div className="flex-1 space-y-4 p-4 pt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>Create a new user account with appropriate permissions.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Full Name
-                  </Label>
-                  <Input id="name" className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="phone" className="text-right">
-                    Phone
-                  </Label>
-                  <Input id="phone" className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input id="email" type="email" className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role" className="text-right">
-                    Role
-                  </Label>
-                  <Select>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">System Administrator</SelectItem>
-                      <SelectItem value="sales">Sales Manager</SelectItem>
-                      <SelectItem value="logistics">Logistics Coordinator</SelectItem>
-                      <SelectItem value="finance">Finance Officer</SelectItem>
-                      <SelectItem value="warehouse">Warehouse Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="responsibility" className="text-right">
-                    Responsibility
-                  </Label>
-                  <Input id="responsibility" className="col-span-3" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Create User</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>System Users</CardTitle>
-            <CardDescription>Manage user accounts and permissions</CardDescription>
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
+      <Card className="w-full card">
+        <CardHeader>
+          <CardTitle>System Users</CardTitle>
+          <CardDescription>
+            Manage user accounts and permissions
+          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div
+              className="relative flex-1 max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                key={`search-${isCreateDialogOpen}-${isEditDialogOpen}`}
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => {
+                  if (!isFormActive) {
+                    setSearchTerm(e.target.value);
+                  }
+                }}
+                onFocus={(e) => {
+                  // Prevent focus if dialogs are open
+                  if (isCreateDialogOpen || isEditDialogOpen) {
+                    e.target.blur();
+                  }
+                }}
+                className="pl-8"
+              />
             </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={(open) => {
+                setIsCreateDialogOpen(open);
+                setIsFormActive(open);
+                // Clear search term when dialog opens to prevent interference
+                if (open) {
+                  setSearchTerm("");
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <form onSubmit={(e) => e.preventDefault()}>
+                  <DialogHeader>
+                    <DialogTitle>Create New User</DialogTitle>
+                    <DialogDescription>
+                      Add a new user to the system with appropriate roles and
+                      permissions.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-name">Name</Label>
+                      <Input
+                        id="create-name"
+                        value={formData.name}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setFormData({ ...formData, name: e.target.value });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Enter full name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-email">Email</Label>
+                      <Input
+                        id="create-email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setFormData({ ...formData, email: e.target.value });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-phone">Phone</Label>
+                      <Input
+                        id="create-phone"
+                        value={formData.phone}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setFormData({ ...formData, phone: e.target.value });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Enter phone number (optional)"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-responsibility">
+                        Responsibility
+                      </Label>
+                      <Input
+                        id="create-responsibility"
+                        value={formData.responsibility}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setFormData({
+                            ...formData,
+                            responsibility: e.target.value,
+                          });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Enter responsibility (optional)"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-password">Password</Label>
+                      <Input
+                        id="create-password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setFormData({
+                            ...formData,
+                            password: e.target.value,
+                          });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Enter password"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-roles">Role</Label>
+                      <Select
+                        value={formData.roles?.[0] || ""}
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, roles: [value] });
+                        }}
+                      >
+                        <SelectTrigger id="create-roles">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Admin">Admin</SelectItem>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="User">User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </form>
+                <DialogFooter>
+                  <Button onClick={handleCreateUser}>Create User</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="w-full">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Loading users...</span>
+            </div>
+          ) : (
+            <Table className="bg-white w-full table">
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-white">
                   <TableHead>Name</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Email</TableHead>
@@ -198,28 +482,41 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                {users.map((user) => (
+                  <TableRow
+                    key={user.id}
+                    data-user-id={user.id}
+                    className="bg-white"
+                  >
                     <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.phone}</TableCell>
+                    <TableCell>{user.phone || "N/A"}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{user.role}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {getRoleBadges(user.roles)}
+                      </div>
                     </TableCell>
-                    <TableCell>{user.responsibility}</TableCell>
+                    <TableCell>{user.responsibility || "N/A"}</TableCell>
+                    <TableCell>{getStatusBadge(user)}</TableCell>
                     <TableCell>
-                      <Badge variant={user.status === "Active" ? "default" : "secondary"}>{user.status}</Badge>
+                      {user.last_login_at
+                        ? new Date(user.last_login_at).toLocaleDateString()
+                        : "Never"}
                     </TableCell>
-                    <TableCell>{user.lastLogin}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(user)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
-                          {user.status === "Active" ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                        </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -228,9 +525,111 @@ export default function UsersPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          setIsFormActive(open);
+          // Clear search term when dialog opens to prevent interference
+          if (open) {
+            setSearchTerm("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="Enter full name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                placeholder="Enter email address"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="Enter phone number (optional)"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-responsibility">Responsibility</Label>
+              <Input
+                id="edit-responsibility"
+                value={formData.responsibility}
+                onChange={(e) =>
+                  setFormData({ ...formData, responsibility: e.target.value })
+                }
+                placeholder="Enter responsibility (optional)"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-password">Password</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                placeholder="Leave blank to keep current password"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-roles">Role</Label>
+              <Select
+                value={formData.roles?.[0] || ""}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, roles: [value] });
+                }}
+              >
+                <SelectTrigger id="edit-roles">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="Manager">Manager</SelectItem>
+                  <SelectItem value="User">User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateUser}>Update User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
